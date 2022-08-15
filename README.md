@@ -1,6 +1,6 @@
-# Sales price prediction
+# House price prediction
 
-Use regression to predict price of electronic devices
+Use regression to predict price of California houses
 
 Tip: If you don't have markdown viewer like atom, you can render this on chrome by following [this link](https://imagecomputing.net/damien.rohmer/teaching/general/markdown_viewer/index.html).
 
@@ -65,6 +65,7 @@ and check no error messages (`Error: ...`) are printed.
         * `documentation` - To auto-generate doc from doc strings and/or create rst style documentation to share documentation online
         * `testing` - To use automated test cases
         * `jupyter` - To run the notebooks. This includes jupyter extensions for spell check, advances formatting.
+        * `radon` - To provide a complexity score for the codebase
         * `extras` - there are nice to haves or for pointed usage.
     * Edit the addons here `deploy/conda_envs/<addon-name>-<windows/linux>-cpu-64-dev.yml` to suit your need.
     * Each of the packages there have line comments with their purpose. From an installation standpoint extras are treated as addons
@@ -86,7 +87,7 @@ and check no error messages (`Error: ...`) are printed.
 
 * Run below to install addons. Feel free to customize addons as suggested in the introduction.
 ```
-(base):~/<proj-folder>$ inv dev.setup-addon --formatting --jupyter --documentation --testing --extras
+(base):~/<proj-folder>$ inv dev.setup-addon --formatting --jupyter --documentation --testing --radon --extras
 ```
 
 

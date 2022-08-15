@@ -194,7 +194,9 @@ def setup_env_legacy(c, platform=PLATFORM, env=DEV_ENV, force=False):
             # install jupyterlab extensions
             for extension in extensions["extensions"]:
                 extn_name = "@{channel}/{name}@{version}".format(**extension)
-                c.run(f"jupyter labextension install --no-build {extn_name}",)
+                c.run(
+                    f"jupyter labextension install --no-build {extn_name}",
+                )
 
             out = c.run("jupyter lab build")
 
@@ -273,7 +275,9 @@ def setup_env(c, platform=PLATFORM, env=DEV_ENV, force=False):
             # install jupyterlab extensions
             for extension in extensions["extensions"]:
                 extn_name = "@{channel}/{name}@{version}".format(**extension)
-                c.run(f"jupyter labextension install --no-build {extn_name}",)
+                c.run(
+                    f"jupyter labextension install --no-build {extn_name}",
+                )
 
             out = c.run("jupyter lab build")
 
@@ -354,7 +358,91 @@ def setup_env_pyspark(c, platform=PLATFORM, env=DEV_ENV, force=True):
             # install jupyterlab extensions
             for extension in extensions["extensions"]:
                 extn_name = "@{channel}/{name}@{version}".format(**extension)
-                c.run(f"jupyter labextension install --no-build {extn_name}",)
+                c.run(
+                    f"jupyter labextension install --no-build {extn_name}",
+                )
+
+            out = c.run("jupyter lab build")
+
+    # FIXME: create default folders that are expected. these need to be handled
+    # when convering to cookiecutter templates
+    os.makedirs(op.join(HERE, "logs"), exist_ok=True)
+    os.makedirs(op.join(HERE, "mlruns"), exist_ok=True)
+    os.makedirs(op.join(HERE, "data"), exist_ok=True)
+
+
+@task(
+    help={
+        "platform": (
+            "Specifies the platform spec. Must be of the form "
+            "``{windows|linux}-{cpu|gpu}-{64|32}``"
+        ),
+        "env": "Specifies the enviroment type. Must be one of ``{dev|test|run}``",
+        "force": "If ``True``, any pre-existing environment with the same name will be overwritten",
+    }
+)
+def setup_env_pyspark(c, platform=PLATFORM, env=DEV_ENV, force=True):
+    """Setup a new development environment.
+
+    Creates a new conda environment with the dependencies specified in the file
+    ``env/{platform}-{env}.yml``. To overwrite an existing environment with the
+    same name, set the flag ``force`` to ``True``.
+    """
+
+    # run pre-checks
+    check_setup_prerequisites(c)
+
+    # FIXME: We might want to split the env.yml file into multiple
+    # files: run.yml, build.yml, test.yml and support combining them for
+    # different environments
+    force_flag = "" if not force else "--force"
+
+    env_file = op.abspath(op.join(PYSPARK_ENV_FOLDER, f"{platform}-{env}.yml"))
+    req_file = op.abspath(
+        op.join(PYSPARK_ENV_FOLDER, f"requirements-{platform}-{env}.txt")
+    )
+    req_flag = True
+    if not op.isfile(env_file):
+        raise ValueError(f"The conda env file is not found : {env_file}")
+    if not op.isfile(req_file):
+        req_flag = False
+    env_name = _get_env_name_pyspark(platform, env)
+    print(f"env_name is {env_name} \n env_file is {env_file}")  # Todo: Delete this
+    # out = c.run(f"conda env create --name {env_name} -f {env_file}  {force_flag}")
+    out = c.run(f"conda env create -f {env_file}  {force_flag}")
+
+    # check for jupyterlab
+    with open(env_file, "r") as fp:
+        env_cfg = fp.read()
+
+    # installing jupyter lab extensions
+    extensions_file = op.abspath(op.join(CONDA_ENV_FOLDER, "jupyterlab_extensions.yml"))
+    with open(extensions_file) as fp:
+        extensions = yaml.safe_load(fp)
+
+    # install the code-template modules
+    with py_env(c, env_name):
+
+        # install pip requirements
+        if req_flag:
+            c.run(f"pip install -r {req_file} --no-deps")
+
+        # install the current package
+        c.run(
+            f"pip install -e {HERE}"
+        )  # Todo: Alternative is a separate src folder for pyspark modules only
+
+        is_jupyter = False
+        if "jupyterlab-" in env_cfg:
+            is_jupyter = True
+
+        if is_jupyter:
+            # install jupyterlab extensions
+            for extension in extensions["extensions"]:
+                extn_name = "@{channel}/{name}@{version}".format(**extension)
+                c.run(
+                    f"jupyter labextension install --no-build {extn_name}",
+                )
 
             out = c.run("jupyter lab build")
 
@@ -374,13 +462,14 @@ def setup_addon(
     testing=False,
     formatting=False,
     jupyter=False,
+    radon=False,
     extras=False,
 ):
-    """Installs add on packages related to documentation, testing or code-formatting.
+    """Installs add on packages related to documentation, testing, code-formatting or radon.
 
-    Dependencies related to documentation, testing or code-formatting can be installed on demand.
+    Dependencies related to documentation, testing, code-formatting or radon can be installed on demand.
     By Specifying `--documentation`, documentation related packages get installed. Similarly to install testing
-    or formatting related packages, flags `--testing` `formatting` will do the needful installations.
+    or formatting related packages, flags `--testing` `formatting` `radon` will do the needful installations.
     """
     env_name = _get_env_name(platform, env)
 
@@ -395,6 +484,9 @@ def setup_addon(
     )
     addons_jupyter = op.abspath(
         op.join(CONDA_ENV_FOLDER, f"addon-jupyter-{platform}-{env}.yml")
+    )
+    addons_radon = op.abspath(
+        op.join(CONDA_ENV_FOLDER, f"addon-radon-{platform}-{env}.yml")
     )
     addons_extras = op.abspath(
         op.join(CONDA_ENV_FOLDER, f"addon-extras-{platform}-{env}.yml")
@@ -425,9 +517,15 @@ def setup_addon(
 
             for extension in extensions["extensions"]:
                 extn_name = "@{channel}/{name}@{version}".format(**extension)
-                c.run(f"jupyter labextension install --no-build {extn_name}",)
+                c.run(
+                    f"jupyter labextension install --no-build {extn_name}",
+                )
 
             out = c.run("jupyter lab build")
+        if radon:
+            c.run(
+                f"conda env update --name {ENV_PREFIX}-{DEV_ENV} --file {addons_radon}"
+            )
         if extras:
             c.run(
                 f"conda env update --name {ENV_PREFIX}-{DEV_ENV} --file {addons_extras}"
@@ -774,6 +872,14 @@ def start_ipython_shell(c, platform=PLATFORM, env=DEV_ENV):
         c.run(f"ipython -i {startup_script}")
 
 
+@task(name="radon")
+def start_radon(c, platform=PLATFORM, env=DEV_ENV):
+    env_name = _get_env_name(platform, env)
+    with py_env(c, env_name):
+        res = c.run(f"radon cc {HERE}")
+    return res.stdout
+
+
 _create_task_collection(
     "launch",
     start_jupyterlab,
@@ -781,6 +887,7 @@ _create_task_collection(
     start_tracker_ui,
     start_docs_server,
     start_ipython_shell,
+    start_radon,
 )
 
 
@@ -797,4 +904,3 @@ if OS == "windows":
     config["pty"] = False
 
 ns.configure(config)
-
