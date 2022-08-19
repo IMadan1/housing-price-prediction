@@ -5,11 +5,6 @@ jobs:
         tasks:
           - name: "housing"
             params: {}
-
-      - name: "clean-derivative-tables"
-        tasks:
-          - name: "housing"
-            params: {}
       - name: "train-test-split"
         tasks:
           - name: "train-test"
@@ -27,7 +22,12 @@ jobs:
                 method: mean
                 drop: False
               sampling_fraction: 0.1
-
+  - name: hyper_parmeter
+    stages:
+      - name: "model-tuning"
+        tasks:
+          - name: "parameter-searchSpace"
+            params: {}
   - name: model-gen
     stages:
       - name: "model-creation"
