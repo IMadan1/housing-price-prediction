@@ -13,3 +13,4 @@ ta_lib
    ta_lib.core.api
    ta_lib.reports.api
    ta_lib.mmx.api
+   ta_lib.hyperparam_tuning.api

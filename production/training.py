@@ -1,9 +1,11 @@
 """Processors for the model training step of the worklow."""
+import imp
 import logging
 import os.path as op
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.pipeline import Pipeline
-
 from ta_lib.core.api import (
     DEFAULT_ARTIFACTS_PATH,
     get_dataframe,
@@ -35,15 +37,6 @@ def train_model(context, params):
     curated_columns = load_pipeline(op.join(artifacts_folder, "curated_columns.joblib"))
     features_transformer = load_pipeline(op.join(artifacts_folder, "features.joblib"))
 
-    # sample data if needed. Useful for debugging/profiling purposes.
-    sample_frac = params.get("sampling_fraction", None)
-    if sample_frac is not None:
-        logger.warn(f"The data has been sample by fraction: {sample_frac}")
-        sample_X = train_X.sample(frac=sample_frac, random_state=context.random_seed)
-    else:
-        sample_X = train_X
-    sample_y = train_y.loc[sample_X.index]
-
     # transform the training data
     train_X = get_dataframe(
         features_transformer.fit_transform(train_X, train_y),
@@ -67,14 +60,26 @@ def train_model(context, params):
         ],
     )
     train_X = train_X[curated_columns]
-
+    
     # create training pipeline
-    rft = Pipeline(
-        [("random_forest", RandomForestRegressor(max_features=4, n_estimators=30))]
-    )
+    param=pd.read_pickle(op.join(artifacts_folder, "best_params"))
+    regressor = param['regressor']
+    param.pop('regressor')
+    if regressor=="Linear":
+        model = Pipeline(
+            [("linear", SKLStatsmodelOLS(**param))]
+        )
+    elif regressor=='DecisionTree':
+        model = Pipeline(
+            [("decision_tree", DecisionTreeRegressor(**param))]
+        )
+    else:
+        model = Pipeline(
+            [("random_forest", RandomForestRegressor(**param))]
+        )
 
     # fit the training pipeline
-    rft.fit(train_X, train_y.values.ravel())
+    model.fit(train_X, train_y.values.ravel())
 
     # save fitted training pipeline
-    save_pipeline(rft, op.abspath(op.join(artifacts_folder, "train_pipeline.joblib")))
+    save_pipeline(model, op.abspath(op.join(artifacts_folder, "train_pipeline.joblib")))

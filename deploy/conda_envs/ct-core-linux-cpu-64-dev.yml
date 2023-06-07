@@ -26,6 +26,15 @@ dependencies:
 - shap==0.40.0
 - statsmodels==0.13.2
 - xgboost==1.5.1
+- autopage==0.5.1                      
+- cliff==3.10.1              
+- cmaes==0.8.2               
+- cmd2==2.4.2                
+- colorlog==6.6.0                  
+- optuna==2.10.1             
+- prettytable==3.3.0         
+- pyperclip==1.8.2           
+- pyreadline3==3.4.1         
 - pip:
   - luminol==0.4
   - ruptures==1.1.6
